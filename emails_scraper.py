@@ -1,3 +1,10 @@
+"""
+Bulk Email Scraper For Websites.
+
+This script scrapes emails from a list of domains provided in a CSV file. It navigates the main page and specific subpages
+(e.g., 'contact', 'about') to find email addresses and saves the results in a CSV file.
+"""
+
 import re
 import csv
 import logging
@@ -16,8 +23,8 @@ logging.basicConfig(level=logging.DEBUG, filename='scraper.log', filemode='a',
 
 def extract_emails_from_text(text):
     """
-    Extracts emails from a given text using regex pattern matching.
-    
+    Extract emails from a given text using regex pattern matching.
+
     :param text: Text content from which emails are to be extracted
     :return: List of emails found in the text
     """
@@ -27,8 +34,8 @@ def extract_emails_from_text(text):
 
 def is_valid_url(url):
     """
-    Validates a URL by checking its scheme and netloc.
-    
+    Validate a URL by checking its scheme and netloc.
+
     :param url: URL string to be validated
     :return: Boolean indicating if the URL is valid
     """
@@ -36,9 +43,41 @@ def is_valid_url(url):
     return bool(parsed.netloc) and bool(parsed.scheme)
 
 
+def scrape_emails_from_page(soup):
+    """
+    Extract emails from a BeautifulSoup object representing a page's content.
+
+    :param soup: BeautifulSoup object containing the page content
+    :return: Set of emails found in the page content
+    """
+    emails = set(extract_emails_from_text(soup.get_text()))
+    for a in soup.find_all('a', href=True):
+        href = a['href']
+        if 'mailto:' in href:
+            emails.add(href.split(':')[1])
+    return emails
+
+
+def find_contact_pages(soup, base_url):
+    """
+    Find 'contact' or 'about' pages linked from the main page.
+
+    :param soup: BeautifulSoup object containing the page content
+    :param base_url: The base URL to resolve relative links
+    :return: List of contact page URLs
+    """
+    contact_pages = []
+    for a in soup.find_all('a', href=True):
+        if any(keyword in a.text.lower() for keyword in ['contact', 'about']):
+            contact_url = urljoin(base_url, a['href'])
+            if is_valid_url(contact_url):
+                contact_pages.append(contact_url)
+    return contact_pages
+
+
 def scrape_emails_from_url(url, max_depth=2):
     """
-    Scrapes emails from a given URL and its 'contact' or 'about' pages.
+    Scrape emails from a given URL and its 'contact' or 'about' pages.
 
     :param url: The starting URL to scrape emails from
     :param max_depth: Maximum depth to search for URLs
@@ -65,16 +104,11 @@ def scrape_emails_from_url(url, max_depth=2):
             response = requests.get(current_url, headers=headers, timeout=10)
             if response.status_code == 200:
                 soup = BeautifulSoup(response.content, 'html.parser')
-                emails.update(extract_emails_from_text(soup.get_text()))
+                emails.update(scrape_emails_from_page(soup))
 
-                for a in soup.find_all('a', href=True):
-                    href = a['href']
-                    if 'mailto:' in href:
-                        emails.add(href.split(':')[1])
-                    elif any(keyword in a.text.lower() for keyword in ['contact', 'about']):
-                        contact_url = urljoin(current_url, href)
-                        if is_valid_url(contact_url) and contact_url not in scraped_urls:
-                            urls_to_scrape.append((contact_url, depth + 1))
+                if depth < max_depth:
+                    contact_pages = find_contact_pages(soup, current_url)
+                    urls_to_scrape.extend((page, depth + 1) for page in contact_pages)
 
                 # Additional method: Find all forms and check for email fields
                 for form in soup.find_all('form'):
@@ -100,7 +134,7 @@ def main(input_csv_file, output_csv_file):
     df = pd.read_csv(input_csv_file, quotechar='"', quoting=csv.QUOTE_MINIMAL)
 
     with open(output_csv_file, 'a', newline='', encoding='utf-8') as csvfile:
-        fieldnames = ['email']
+        fieldnames = ['email', 'domain']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
         if csvfile.tell() == 0:
@@ -131,3 +165,4 @@ if __name__ == "__main__":
     INPUT_CSV = "input.csv"
     OUTPUT_CSV = "output.csv"
     main(INPUT_CSV, OUTPUT_CSV)
+  
