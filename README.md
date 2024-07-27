@@ -12,20 +12,18 @@ This Python script is designed to scrape emails from a list of domains provided 
 
 ## Installation
 1. Clone the repository:
-   ```sh
-   git clone https://github.com/yourusername/email-scraper.git```
+   `git clone https://github.com/yourusername/email-scraper.git`
 2. Navigate to the project directory:
-```sh
-cd email-scraper```
+   `cd email-scraper`
+
 3. Install the required packages:
-```sh
-pip install -r requirements.txt```
+`pip install -r requirements.txt`
 
 ## Usage
 Prepare your input CSV file with columns as input.csv
 Run the script:
-```sh
-python scraper.py```
+`python scraper.py
+`
 Check the output CSV file (e.g., output.csv) for the results.
 
 ## Contributing
